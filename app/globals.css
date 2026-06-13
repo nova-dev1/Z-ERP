@@ -1,0 +1,16 @@
+@import "tailwindcss";
+
+:root {
+  --accent: #C8F000;
+  --sidebar: #1C1C1C;
+  --sidebar-hover: #2A2A2A;
+  --bg: #F0F0F0;
+  --card: #FFFFFF;
+  --text: #1A1A1A;
+  --text-muted: #888888;
+  --red: #FF4D4D;
+  --green: #22C55E;
+}
+
+* { box-sizing: border-box; }
+body { background: var(--bg); font-family: 'Inter', sans-serif; }
