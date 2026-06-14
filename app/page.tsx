@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
-import { Package, ShoppingCart, Users, TrendingUp } from "lucide-react";
+import { Package, ShoppingCart, Users, BarChart2 } from "lucide-react";
 import { useApp } from "@/context/AppContext";
 import Header from "@/components/Header";
 import { supabase } from "@/lib/supabase";
@@ -22,12 +22,10 @@ export default function Dashboard() {
   const [customers, setCustomers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Theme colors
   const card = darkMode ? "#1C1C1C" : "#fff";
   const text = darkMode ? "#F0F0F0" : "#1A1A1A";
   const muted = darkMode ? "#888" : "#888";
   const border = darkMode ? "#2A2A2A" : "#F0F0F0";
-  const subBg = darkMode ? "#2A2A2A" : "#F9F9F9";
 
   useEffect(() => {
     const load = async () => {
@@ -49,16 +47,18 @@ export default function Dashboard() {
   const totalOrders = orders.length;
   const activeVipClients = customers.filter(c => c.status === "active" || c.status === "vip").length;
 
-  // Real profit from delivered orders: need to match product cost price
-  // Group profit by category from delivered orders
+  // Real profit by category from delivered orders
   const categoryProfitMap: Record<string, number> = {};
   deliveredOrders.forEach(o => {
-    // Find matching product
-    const prod = products.find(p => p.name === o.product || o.product?.includes(p.name?.split(" ")[0]));
+    const prod = products.find(p =>
+      p.name === o.product ||
+      o.product?.toLowerCase().includes(p.name?.toLowerCase().split(" ")[0]) ||
+      p.name?.toLowerCase().includes(o.product?.toLowerCase().split(" ")[0])
+    );
     const sellPrice = o.total_dzd || 0;
     const costPrice = prod ? (prod.cost_price_dzd || 0) * (o.qty || 1) : 0;
     const profit = sellPrice - costPrice;
-    const category = prod?.category || "Autre";
+    const category = prod?.category || o.product || "Autre";
     categoryProfitMap[category] = (categoryProfitMap[category] || 0) + profit;
   });
 
@@ -69,7 +69,7 @@ export default function Dashboard() {
       name, value: Math.round((value / (totalProfit || 1)) * 100), color: DONUT_COLORS[i % DONUT_COLORS.length]
     }));
 
-  // Monthly revenue from delivered orders
+  // Monthly revenue chart
   const monthlyMap: Record<string, number> = {};
   deliveredOrders.forEach(o => {
     const m = new Date(o.created_at).toLocaleString("fr-FR", { month: "short" });
@@ -77,7 +77,6 @@ export default function Dashboard() {
   });
   const areaData = Object.entries(monthlyMap).map(([m, revenue]) => ({ m, revenue }));
 
-  // Recent activity
   const recentActivity = orders.slice(0, 4).map(o => ({
     msg: `${o.code} — ${o.customer_name}`,
     time: new Date(o.created_at).toLocaleString("fr-FR", { day: "numeric", month: "short" }),
@@ -85,11 +84,12 @@ export default function Dashboard() {
     status: o.status,
   }));
 
+  // 4 KPI cards — original structure restored
   const kpis = [
-    { key: "new_products", value: products.length, icon: Package, sub: `${t("available_stock")}: ${totalStock}` },
-    { key: "new_orders", value: totalOrders, icon: ShoppingCart, sub: `${deliveredOrders.length} ${t("delivered")}` },
-    { key: "new_customers", value: activeVipClients, icon: Users, sub: `${t("active")} & VIP` },
-    { key: "net_profit", value: fmt(totalProfit), icon: TrendingUp, sub: t("delivered"), isAmount: true },
+    { label: t("new_products"), value: products.length, icon: Package, sub: `${t("available_stock")}: ${totalStock}` },
+    { label: t("available_stock"), value: totalStock, icon: Package, sub: `${products.filter(p => p.status === "critical").length} critique(s)` },
+    { label: t("new_orders"), value: totalOrders, icon: ShoppingCart, sub: `${deliveredOrders.length} ${t("delivered")}` },
+    { label: t("new_customers"), value: activeVipClients, icon: Users, sub: `${t("active")} & VIP uniquement` },
   ];
 
   if (loading) return (
@@ -104,12 +104,12 @@ export default function Dashboard() {
 
       {/* KPI Cards */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 16, marginBottom: 20 }}>
-        {kpis.map(({ key, value, icon: Icon, sub, isAmount }) => (
-          <div key={key} style={{ background: card, borderRadius: 12, padding: "18px 20px", boxShadow: "0 1px 3px rgba(0,0,0,0.1)", transition: "background 0.2s" }}>
+        {kpis.map(({ label, value, icon: Icon, sub }) => (
+          <div key={label} style={{ background: card, borderRadius: 12, padding: "18px 20px", boxShadow: "0 1px 3px rgba(0,0,0,0.1)", transition: "background 0.2s" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
               <div>
-                <p style={{ color: muted, fontSize: 12, margin: "0 0 6px" }}>{t(key)}</p>
-                <p style={{ fontSize: isAmount ? 20 : 28, fontWeight: 700, margin: 0, color: text }}>{value}</p>
+                <p style={{ color: muted, fontSize: 12, margin: "0 0 6px" }}>{label}</p>
+                <p style={{ fontSize: 28, fontWeight: 700, margin: 0, color: text }}>{value.toLocaleString()}</p>
               </div>
               <div style={{ width: 36, height: 36, borderRadius: 8, background: darkMode ? "#2A2A2A" : "#F5F5F5", display: "flex", alignItems: "center", justifyContent: "center" }}>
                 <Icon size={17} color={muted} />
@@ -150,7 +150,7 @@ export default function Dashboard() {
             </>
           ) : (
             <div style={{ textAlign: "center", padding: "40px 0", color: muted, fontSize: 12 }}>
-              Aucune vente livrée<br/>Le profit apparaît après chaque livraison
+              Aucune vente livrée<br />Le profit apparaît après chaque livraison
             </div>
           )}
         </div>
@@ -189,7 +189,7 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Stock + Activity */}
+      {/* Stock Table + Activity */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 300px", gap: 16 }}>
         <div style={{ background: card, borderRadius: 12, padding: 20, boxShadow: "0 1px 3px rgba(0,0,0,0.1)", transition: "background 0.2s" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
@@ -202,21 +202,22 @@ export default function Dashboard() {
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
               <thead>
                 <tr style={{ borderBottom: `1px solid ${border}` }}>
-                  {[t("product"), t("sku"), t("qty"), t("profit"), t("status")].map(h => (
-                    <th key={h} style={{ textAlign: "left", color: muted, fontWeight: 500, padding: "0 0 8px", fontSize: 11 }}>{h}</th>
+                  {[t("product"), "Code", t("qty"), t("sell_price"), t("profit"), t("status")].map(h => (
+                    <th key={h} style={{ textAlign: "left", color: muted, fontWeight: 500, padding: "0 8px 8px 0", fontSize: 11 }}>{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
-                {products.slice(0, 6).map(p => {
+                {products.slice(0, 7).map(p => {
                   const st = statusStyles[p.status] || statusStyles.active;
                   const profit = (p.price_dzd || 0) - (p.cost_price_dzd || 0);
                   return (
                     <tr key={p.id} style={{ borderBottom: `1px solid ${border}` }}>
-                      <td style={{ padding: "9px 0", fontWeight: 500, color: text }}>{p.name}</td>
-                      <td style={{ padding: "9px 0", color: muted }}>{p.code}</td>
-                      <td style={{ padding: "9px 0", fontWeight: 600, color: text }}>{p.stock}</td>
-                      <td style={{ padding: "9px 0", color: profit > 0 ? "#16a34a" : muted, fontWeight: 600 }}>{fmt(profit)}</td>
+                      <td style={{ padding: "9px 8px 9px 0", fontWeight: 500, color: text }}>{p.name}</td>
+                      <td style={{ padding: "9px 8px 9px 0", color: muted }}>{p.code}</td>
+                      <td style={{ padding: "9px 8px 9px 0", fontWeight: 600, color: text }}>{p.stock}</td>
+                      <td style={{ padding: "9px 8px 9px 0", color: text }}>{fmt(p.price_dzd || 0)}</td>
+                      <td style={{ padding: "9px 8px 9px 0", color: profit > 0 ? "#16a34a" : muted, fontWeight: 600 }}>{fmt(profit)}</td>
                       <td style={{ padding: "9px 0" }}>
                         <span style={{ background: st.bg, color: st.color, padding: "2px 8px", borderRadius: 10, fontSize: 11, fontWeight: 600 }}>{t(statusKeys[p.status] || "active")}</span>
                       </td>
