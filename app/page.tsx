@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
-import { Package, ShoppingCart, Users, BarChart2 } from "lucide-react";
+import { Package, ShoppingCart, Users, Boxes } from "lucide-react";
 import { useApp } from "@/context/AppContext";
 import Header from "@/components/Header";
 import { supabase } from "@/lib/supabase";
@@ -40,11 +40,15 @@ export default function Dashboard() {
       setLoading(false);
     };
     load();
+    // Live refresh every 30s
+    const interval = setInterval(load, 30000);
+    return () => clearInterval(interval);
   }, []);
 
   const deliveredOrders = orders.filter(o => o.status === "delivered");
-  const totalStock = products.reduce((a, p) => a + (p.stock || 0), 0);
-  const totalOrders = orders.length;
+  // Available stock = active + low + critical only (not "out")
+  const availableProducts = products.filter(p => p.status !== "out");
+  const totalAvailableStock = availableProducts.reduce((a, p) => a + (p.stock || 0), 0);
   const activeVipClients = customers.filter(c => c.status === "active" || c.status === "vip").length;
 
   // Real profit by category from delivered orders
@@ -61,19 +65,21 @@ export default function Dashboard() {
     const category = prod?.category || o.product || "Autre";
     categoryProfitMap[category] = (categoryProfitMap[category] || 0) + profit;
   });
-
   const totalProfit = Object.values(categoryProfitMap).reduce((a, b) => a + b, 0);
-  const donutData = Object.entries(categoryProfitMap)
-    .filter(([, v]) => v > 0)
-    .map(([name, value], i) => ({
-      name, value: Math.round((value / (totalProfit || 1)) * 100), color: DONUT_COLORS[i % DONUT_COLORS.length]
-    }));
+  const donutData = Object.entries(categoryProfitMap).filter(([, v]) => v > 0)
+    .map(([name, value], i) => ({ name, value: Math.round((value / (totalProfit || 1)) * 100), color: DONUT_COLORS[i % DONUT_COLORS.length] }));
 
-  // Monthly revenue chart
+  // Monthly rolling (last 6 months)
+  const now = new Date();
   const monthlyMap: Record<string, number> = {};
+  for (let i = 5; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const key = d.toLocaleString("fr-FR", { month: "short" });
+    monthlyMap[key] = 0;
+  }
   deliveredOrders.forEach(o => {
     const m = new Date(o.created_at).toLocaleString("fr-FR", { month: "short" });
-    monthlyMap[m] = (monthlyMap[m] || 0) + (o.total_dzd || 0);
+    if (monthlyMap[m] !== undefined) monthlyMap[m] += (o.total_dzd || 0);
   });
   const areaData = Object.entries(monthlyMap).map(([m, revenue]) => ({ m, revenue }));
 
@@ -84,12 +90,11 @@ export default function Dashboard() {
     status: o.status,
   }));
 
-  // 4 KPI cards — original structure restored
   const kpis = [
-    { label: t("new_products"), value: products.length, icon: Package, sub: `${t("available_stock")}: ${totalStock}` },
-    { label: t("available_stock"), value: totalStock, icon: Package, sub: `${products.filter(p => p.status === "critical").length} critique(s)` },
-    { label: t("new_orders"), value: totalOrders, icon: ShoppingCart, sub: `${deliveredOrders.length} ${t("delivered")}` },
-    { label: t("new_customers"), value: activeVipClients, icon: Users, sub: `${t("active")} & VIP uniquement` },
+    { label: t("new_products"), value: products.length, icon: Package, sub: `${products.filter(p => p.status === "critical").length} ${t("critical")}` },
+    { label: t("available_stock"), value: totalAvailableStock, icon: Boxes, sub: `${t("active")} + ${t("low")} + ${t("critical")}` },
+    { label: t("new_orders"), value: orders.length, icon: ShoppingCart, sub: `${deliveredOrders.length} ${t("delivered")}` },
+    { label: t("new_customers"), value: activeVipClients, icon: Users, sub: `${t("active")} & VIP` },
   ];
 
   if (loading) return (
@@ -102,7 +107,6 @@ export default function Dashboard() {
     <div style={{ padding: "28px 32px", minHeight: "100vh" }}>
       <Header title={t("dashboard")} subtitle={t("welcome")} />
 
-      {/* KPI Cards */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 16, marginBottom: 20 }}>
         {kpis.map(({ label, value, icon: Icon, sub }) => (
           <div key={label} style={{ background: card, borderRadius: 12, padding: "18px 20px", boxShadow: "0 1px 3px rgba(0,0,0,0.1)", transition: "background 0.2s" }}>
@@ -120,11 +124,10 @@ export default function Dashboard() {
         ))}
       </div>
 
-      {/* Donut + Area */}
       <div style={{ display: "grid", gridTemplateColumns: "280px 1fr", gap: 16, marginBottom: 20 }}>
         <div style={{ background: card, borderRadius: 12, padding: 20, boxShadow: "0 1px 3px rgba(0,0,0,0.1)", transition: "background 0.2s" }}>
           <p style={{ fontWeight: 600, fontSize: 13, margin: "0 0 4px", color: text }}>{t("profit_by_category")}</p>
-          <p style={{ color: muted, fontSize: 11, margin: "0 0 12px" }}>Bénéfice réel — commandes livrées</p>
+          <p style={{ color: muted, fontSize: 11, margin: "0 0 12px" }}>{t("delivered")} — {t("net_profit")}</p>
           {donutData.length > 0 ? (
             <>
               <div style={{ display: "flex", justifyContent: "center" }}>
@@ -150,7 +153,7 @@ export default function Dashboard() {
             </>
           ) : (
             <div style={{ textAlign: "center", padding: "40px 0", color: muted, fontSize: 12 }}>
-              Aucune vente livrée<br />Le profit apparaît après chaque livraison
+              {t("delivered")} = 0<br />{t("profit")} → 0
             </div>
           )}
         </div>
@@ -159,45 +162,38 @@ export default function Dashboard() {
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 4 }}>
             <div>
               <p style={{ fontWeight: 600, fontSize: 13, margin: 0, color: text }}>{t("order_summary")}</p>
-              <p style={{ color: muted, fontSize: 11, margin: "2px 0 0" }}>Commandes livrées seulement</p>
+              <p style={{ color: muted, fontSize: 11, margin: "2px 0 0" }}>{t("last_30_days")} — {t("delivered")}</p>
             </div>
             <div style={{ textAlign: "right" }}>
               <p style={{ fontSize: 18, fontWeight: 700, margin: 0, color: text }}>{fmt(deliveredOrders.reduce((a, o) => a + (o.total_dzd || 0), 0))}</p>
               <span style={{ fontSize: 11, color: "#16a34a", background: "#DCFCE7", padding: "1px 6px", borderRadius: 4 }}>{deliveredOrders.length} {t("delivered")}</span>
             </div>
           </div>
-          {areaData.length > 0 ? (
-            <ResponsiveContainer width="100%" height={200}>
-              <AreaChart data={areaData} margin={{ top: 10, right: 0, left: -20, bottom: 0 }}>
-                <defs>
-                  <linearGradient id="rev" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#C8F000" stopOpacity={0.3} />
-                    <stop offset="95%" stopColor="#C8F000" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <XAxis dataKey="m" tick={{ fontSize: 11, fill: muted }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fontSize: 10, fill: muted }} axisLine={false} tickLine={false} tickFormatter={v => fmt(v).split(" ")[0]} />
-                <Tooltip formatter={(v) => [fmt(Number(v)), t("revenue")]} contentStyle={{ background: card, border: `1px solid ${border}`, color: text }} />
-                <Area type="monotone" dataKey="revenue" stroke="#C8F000" strokeWidth={2.5} fill="url(#rev)" />
-              </AreaChart>
-            </ResponsiveContainer>
-          ) : (
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: 200, color: muted, fontSize: 13 }}>
-              Aucune commande livrée pour le moment
-            </div>
-          )}
+          <ResponsiveContainer width="100%" height={200}>
+            <AreaChart data={areaData} margin={{ top: 10, right: 0, left: -20, bottom: 0 }}>
+              <defs>
+                <linearGradient id="rev" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#C8F000" stopOpacity={0.3} />
+                  <stop offset="95%" stopColor="#C8F000" stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <XAxis dataKey="m" tick={{ fontSize: 11, fill: muted }} axisLine={false} tickLine={false} />
+              <YAxis tick={{ fontSize: 10, fill: muted }} axisLine={false} tickLine={false} tickFormatter={v => fmt(v).split(" ")[0]} />
+              <Tooltip formatter={(v) => [fmt(Number(v)), t("revenue")]} contentStyle={{ background: card, border: `1px solid ${border}`, color: text }} />
+              <Area type="monotone" dataKey="revenue" stroke="#C8F000" strokeWidth={2.5} fill="url(#rev)" />
+            </AreaChart>
+          </ResponsiveContainer>
         </div>
       </div>
 
-      {/* Stock Table + Activity */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 300px", gap: 16 }}>
         <div style={{ background: card, borderRadius: 12, padding: 20, boxShadow: "0 1px 3px rgba(0,0,0,0.1)", transition: "background 0.2s" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
             <p style={{ fontWeight: 600, fontSize: 13, margin: 0, color: text }}>{t("stock_level")}</p>
-            <span style={{ background: "#1C1C1C", color: "#C8F000", fontSize: 11, padding: "3px 10px", borderRadius: 20, fontWeight: 600 }}>{products.length} SKUs</span>
+            <span style={{ background: "#1C1C1C", color: "#C8F000", fontSize: 11, padding: "3px 10px", borderRadius: 20, fontWeight: 600 }}>{availableProducts.length} SKUs</span>
           </div>
-          {products.length === 0 ? (
-            <div style={{ padding: "20px 0", textAlign: "center", color: muted, fontSize: 13 }}>Aucun produit ajouté</div>
+          {availableProducts.length === 0 ? (
+            <div style={{ padding: "20px 0", textAlign: "center", color: muted, fontSize: 13 }}>Aucun produit disponible</div>
           ) : (
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
               <thead>
@@ -208,7 +204,7 @@ export default function Dashboard() {
                 </tr>
               </thead>
               <tbody>
-                {products.slice(0, 7).map(p => {
+                {availableProducts.slice(0, 7).map(p => {
                   const st = statusStyles[p.status] || statusStyles.active;
                   const profit = (p.price_dzd || 0) - (p.cost_price_dzd || 0);
                   return (
