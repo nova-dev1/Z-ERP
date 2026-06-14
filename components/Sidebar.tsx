@@ -7,7 +7,12 @@ import { supabase } from "@/lib/supabase";
 
 export default function Sidebar() {
   const path = usePathname();
-  const { t, lang } = useApp();
+  const { t, darkMode } = useApp();
+
+  const sidebarBg = darkMode ? "#0A0A0A" : "#1C1C1C";
+  const activeColor = "#C8F000";
+  const inactiveColor = darkMode ? "#666" : "#999";
+  const borderColor = darkMode ? "#1A1A1A" : "#2A2A2A";
 
   const nav = [
     { key: "dashboard", icon: LayoutDashboard, href: "/" },
@@ -17,56 +22,47 @@ export default function Sidebar() {
     { key: "finance", icon: DollarSign, href: "/finance" },
     { key: "reports", icon: BarChart2, href: "/reports" },
   ];
-
   const bottom = [
     { key: "settings", icon: Settings, href: "/settings" },
     { key: "help", icon: HelpCircle, href: "/help" },
   ];
 
   return (
-    <aside style={{ width: 220, minHeight: "100vh", background: "#1C1C1C", display: "flex", flexDirection: "column", padding: "24px 0", flexShrink: 0 }}>
+    <aside style={{ width: 220, minHeight: "100vh", background: sidebarBg, display: "flex", flexDirection: "column", padding: "24px 0", flexShrink: 0, transition: "background 0.2s" }}>
       <div style={{ padding: "0 20px 32px" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <div style={{ width: 30, height: 30, borderRadius: 8, background: "#C8F000", display: "flex", alignItems: "center", justifyContent: "center" }}>
             <Zap size={16} color="#1C1C1C" fill="#1C1C1C" />
           </div>
-          <span style={{ color: "#fff", fontWeight: 700, fontSize: 15, letterSpacing: 0.3 }}>ETS ZAIMI</span>
+          <span style={{ color: "#fff", fontWeight: 700, fontSize: 15 }}>ETS ZAIMI</span>
         </div>
       </div>
 
       <nav style={{ flex: 1, padding: "0 12px", display: "flex", flexDirection: "column", gap: 2 }}>
-        <p style={{ color: "#555", fontSize: 10, fontWeight: 600, letterSpacing: 1.2, padding: "0 8px 8px", textTransform: "uppercase" }}>
-          {t("main_menu")}
-        </p>
+        <p style={{ color: "#555", fontSize: 10, fontWeight: 600, letterSpacing: 1.2, padding: "0 8px 8px", textTransform: "uppercase" }}>{t("main_menu")}</p>
         {nav.map(({ key, icon: Icon, href }) => {
           const active = path === href;
           return (
             <Link key={href} href={href} style={{
-              display: "flex", alignItems: "center", gap: 10,
-              padding: "9px 12px", borderRadius: 8,
+              display: "flex", alignItems: "center", gap: 10, padding: "9px 12px", borderRadius: 8,
               background: active ? "#C8F000" : "transparent",
-              color: active ? "#1C1C1C" : "#999",
-              fontWeight: active ? 600 : 400,
-              fontSize: 13.5, textDecoration: "none", transition: "all 0.15s",
+              color: active ? "#1C1C1C" : inactiveColor,
+              fontWeight: active ? 600 : 400, fontSize: 13.5, textDecoration: "none", transition: "all 0.15s",
             }}>
               <Icon size={16} />
               {t(key)}
             </Link>
           );
         })}
-
-        <p style={{ color: "#555", fontSize: 10, fontWeight: 600, letterSpacing: 1.2, padding: "16px 8px 8px", textTransform: "uppercase" }}>
-          {t("support")}
-        </p>
+        <p style={{ color: "#555", fontSize: 10, fontWeight: 600, letterSpacing: 1.2, padding: "16px 8px 8px", textTransform: "uppercase" }}>{t("support")}</p>
         {bottom.map(({ key, icon: Icon, href }) => (
-          <Link key={href} href={href} style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 12px", borderRadius: 8, color: "#666", fontSize: 13.5, textDecoration: "none" }}>
-            <Icon size={16} />
-            {t(key)}
+          <Link key={href} href={href} style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 12px", borderRadius: 8, color: inactiveColor, fontSize: 13.5, textDecoration: "none" }}>
+            <Icon size={16} /> {t(key)}
           </Link>
         ))}
       </nav>
 
-      <div style={{ padding: "16px 20px 0", borderTop: "1px solid #2A2A2A" }}>
+      <div style={{ padding: "16px 20px 0", borderTop: `1px solid ${borderColor}` }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <div style={{ width: 32, height: 32, borderRadius: "50%", background: "#C8F000", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700, color: "#1C1C1C" }}>AZ</div>
           <div style={{ flex: 1 }}>
@@ -79,4 +75,3 @@ export default function Sidebar() {
     </aside>
   );
 }
-// logout handled in file above
