@@ -3,6 +3,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { LayoutDashboard, Package, ShoppingCart, Users, DollarSign, BarChart2, Settings, HelpCircle, LogOut, Zap } from "lucide-react";
 import { useApp } from "@/context/AppContext";
+import { supabase } from "@/lib/supabase";
 
 export default function Sidebar() {
   const path = usePathname();
@@ -72,9 +73,10 @@ export default function Sidebar() {
             <p style={{ color: "#fff", fontSize: 12, fontWeight: 600, margin: 0 }}>Admin ZAIMI</p>
             <p style={{ color: "#555", fontSize: 11, margin: 0 }}>Super Admin</p>
           </div>
-          <LogOut size={14} color="#555" style={{ cursor: "pointer" }} />
+          <LogOut size={14} color="#555" style={{ cursor: "pointer" }} onClick={() => supabase.auth.signOut()} />
         </div>
       </div>
     </aside>
   );
 }
+// logout handled in file above

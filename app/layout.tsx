@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import Sidebar from "@/components/Sidebar";
 import { AppProvider } from "@/context/AppContext";
+import LayoutShell from "@/components/LayoutShell";
 
 export const metadata: Metadata = {
   title: "ETS ZAIMI — ERP",
@@ -13,10 +13,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="fr">
       <body style={{ margin: 0 }}>
         <AppProvider>
-          <div style={{ display: "flex", minHeight: "100vh" }}>
-            <Sidebar />
-            <main style={{ flex: 1, overflow: "auto" }}>{children}</main>
-          </div>
+          <LayoutShell>{children}</LayoutShell>
         </AppProvider>
       </body>
     </html>
