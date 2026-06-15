@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Package, ShoppingCart, Users, DollarSign, BarChart2, Settings, HelpCircle, LogOut, Zap } from "lucide-react";
+import { LayoutDashboard, Package, ShoppingCart, Users, DollarSign, BarChart2, Settings, HelpCircle, LogOut, Zap, FileText } from "lucide-react";
 import { useApp } from "@/context/AppContext";
 import { supabase } from "@/lib/supabase";
 
@@ -10,7 +10,6 @@ export default function Sidebar() {
   const { t, darkMode } = useApp();
 
   const sidebarBg = darkMode ? "#0A0A0A" : "#1C1C1C";
-  const activeColor = "#C8F000";
   const inactiveColor = darkMode ? "#666" : "#999";
   const borderColor = darkMode ? "#1A1A1A" : "#2A2A2A";
 
@@ -18,6 +17,7 @@ export default function Sidebar() {
     { key: "dashboard", icon: LayoutDashboard, href: "/" },
     { key: "products", icon: Package, href: "/products" },
     { key: "orders", icon: ShoppingCart, href: "/orders" },
+    { key: "invoices", icon: FileText, href: "/invoices" },
     { key: "customers", icon: Users, href: "/customers" },
     { key: "finance", icon: DollarSign, href: "/finance" },
     { key: "reports", icon: BarChart2, href: "/reports" },
@@ -26,6 +26,8 @@ export default function Sidebar() {
     { key: "settings", icon: Settings, href: "/settings" },
     { key: "help", icon: HelpCircle, href: "/help" },
   ];
+
+  const navLabels: Record<string, string> = { invoices: "Factures" };
 
   return (
     <aside style={{ width: 220, minHeight: "100vh", background: sidebarBg, display: "flex", flexDirection: "column", padding: "24px 0", flexShrink: 0, transition: "background 0.2s" }}>
@@ -50,7 +52,7 @@ export default function Sidebar() {
               fontWeight: active ? 600 : 400, fontSize: 13.5, textDecoration: "none", transition: "all 0.15s",
             }}>
               <Icon size={16} />
-              {t(key)}
+              {navLabels[key] || t(key)}
             </Link>
           );
         })}

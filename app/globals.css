@@ -1,16 +1,27 @@
 @import "tailwindcss";
 
-:root {
-  --accent: #C8F000;
-  --sidebar: #1C1C1C;
-  --sidebar-hover: #2A2A2A;
-  --bg: #F0F0F0;
-  --card: #FFFFFF;
-  --text: #1A1A1A;
-  --text-muted: #888888;
-  --red: #FF4D4D;
-  --green: #22C55E;
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+/* Mobile responsive sidebar */
+@media (max-width: 768px) {
+  .sidebar { display: none !important; }
+  .sidebar.open { display: flex !important; position: fixed; inset: 0; z-index: 200; width: 220px !important; }
+  .mobile-menu-btn { display: flex !important; }
+  .main-content { padding: 16px !important; }
+  .grid-4 { grid-template-columns: repeat(2, 1fr) !important; }
+  .grid-2 { grid-template-columns: 1fr !important; }
+  .grid-3 { grid-template-columns: 1fr !important; }
+  .hide-mobile { display: none !important; }
 }
 
-* { box-sizing: border-box; }
-body { background: var(--bg); font-family: 'Inter', sans-serif; }
+@media (min-width: 769px) {
+  .mobile-menu-btn { display: none !important; }
+  .mobile-overlay { display: none !important; }
+}
+
+/* Scrollable tables on mobile */
+.table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+
+/* Smooth transitions */
+* { transition: background-color 0.2s ease, color 0.1s ease; }
+input, select, button { transition: none; }
