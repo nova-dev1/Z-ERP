@@ -240,7 +240,7 @@ export default function Orders() {
             </div>
 
             {/* PRODUCT SELECTOR */}
-            <div style={{ marginBottom: 20 }} onClick={e => e.stopPropagation()}>
+            <div style={{ marginBottom: 20, position: "relative", zIndex: showProductDropdown ? 20 : 1 }} onClick={e => e.stopPropagation()}>
               <label style={{ fontSize: 12, fontWeight: 600, color: muted, display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
                 <Package size={13} /> Produit
               </label>
@@ -255,7 +255,7 @@ export default function Orders() {
                 <ChevronDown size={14} style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", color: muted, pointerEvents: "none" }} />
 
                 {showProductDropdown && filteredProducts.length > 0 && (
-                  <div style={{ position: "absolute", top: "100%", left: 0, right: 0, background: card, border: `1px solid ${inputBorder}`, borderRadius: 8, zIndex: 10, maxHeight: 220, overflowY: "auto", boxShadow: "0 8px 24px rgba(0,0,0,0.15)", marginTop: 4 }}>
+                  <div style={{ position: "absolute", top: "100%", left: 0, right: 0, background: card, border: `1px solid ${inputBorder}`, borderRadius: 8, zIndex: 50, maxHeight: 220, overflowY: "auto", boxShadow: darkMode ? "0 8px 24px rgba(0,0,0,0.6)" : "0 8px 24px rgba(0,0,0,0.25)", marginTop: 4, opacity: 1 }}>
                     {filteredProducts.map(p => (
                       <div key={p.id} onClick={() => { setSelectedProduct(p); setProductSearch(p.name); setShowProductDropdown(false); }}
                         style={{ padding: "10px 14px", cursor: "pointer", borderBottom: `1px solid ${border}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}
@@ -307,7 +307,7 @@ export default function Orders() {
             )}
 
             {/* CLIENT SELECTOR */}
-            <div style={{ marginBottom: 20 }} onClick={e => e.stopPropagation()}>
+            <div style={{ marginBottom: 20, position: "relative", zIndex: showClientDropdown ? 20 : 1 }} onClick={e => e.stopPropagation()}>
               <label style={{ fontSize: 12, fontWeight: 600, color: muted, display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
                 <User size={13} /> Client
               </label>
@@ -325,7 +325,7 @@ export default function Orders() {
                     <ChevronDown size={14} style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", color: muted, pointerEvents: "none" }} />
 
                     {showClientDropdown && filteredCustomers.length > 0 && (
-                      <div style={{ position: "absolute", top: "100%", left: 0, right: 0, background: card, border: `1px solid ${inputBorder}`, borderRadius: 8, zIndex: 10, maxHeight: 200, overflowY: "auto", boxShadow: "0 8px 24px rgba(0,0,0,0.15)", marginTop: 4 }}>
+                      <div style={{ position: "absolute", top: "100%", left: 0, right: 0, background: card, border: `1px solid ${inputBorder}`, borderRadius: 8, zIndex: 50, maxHeight: 200, overflowY: "auto", boxShadow: darkMode ? "0 8px 24px rgba(0,0,0,0.6)" : "0 8px 24px rgba(0,0,0,0.25)", marginTop: 4 }}>
                         {filteredCustomers.map(c => {
                           const st = clientStatusStyle[c.status] || clientStatusStyle.new;
                           return (
