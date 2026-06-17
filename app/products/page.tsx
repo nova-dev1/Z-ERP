@@ -1,9 +1,10 @@
 "use client";
 import { useState, useEffect } from "react";
-import { Search, Plus, Filter, X } from "lucide-react";
+import { Search, Plus, Filter, X, Download } from "lucide-react";
 import { useApp } from "@/context/AppContext";
 import Header from "@/components/Header";
 import { supabase } from "@/lib/supabase";
+import { exportToExcel } from "@/lib/exportExcel";
 
 type Product = { id: string; code: string; name: string; category: string; price_dzd: number; cost_price_dzd: number; stock: number; status: string; };
 
@@ -23,15 +24,21 @@ export default function Products() {
   const [editing, setEditing] = useState<Product | null>(null);
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
+  const [categoryMode, setCategoryMode] = useState<"select" | "new">("select");
+  const [filterCategory, setFilterCategory] = useState("all");
 
   const card = darkMode ? "#1C1C1C" : "#fff";
   const border = darkMode ? "#2A2A2A" : "#F0F0F0";
   const text = darkMode ? "#F0F0F0" : "#1A1A1A";
   const muted = darkMode ? "#888" : "#aaa";
+  const headerBg = darkMode ? "#2A2A2A" : "#F9F9F9";
   const inputStyle = { width: "100%", padding: "9px 12px", border: `1.5px solid ${darkMode ? "#3A3A3A" : "#E5E7EB"}`, borderRadius: 8, fontSize: 13, outline: "none", boxSizing: "border-box" as const, background: darkMode ? "#2A2A2A" : "#fff", color: text };
 
   const load = async () => { setLoading(true); const { data } = await supabase.from("products").select("*").order("created_at", { ascending: false }); setProducts(data || []); setLoading(false); };
   useEffect(() => { load(); }, []);
+
+  // Existing categories, deduplicated
+  const existingCategories = Array.from(new Set(products.map(p => p.category).filter(Boolean))).sort();
 
   const generateCode = () => {
     const year = new Date().getFullYear();
@@ -39,8 +46,18 @@ export default function Products() {
     return `PRD-${year}-${num}`;
   };
 
-  const openAdd = () => { setEditing(null); setForm(emptyForm); setModal(true); };
-  const openEdit = (p: Product) => { setEditing(p); setForm({ code: p.code, name: p.name, category: p.category, price_dzd: p.price_dzd, cost_price_dzd: p.cost_price_dzd || 0, stock: p.stock, status: p.status }); setModal(true); };
+  const openAdd = () => {
+    setEditing(null);
+    setForm(emptyForm);
+    setCategoryMode(existingCategories.length > 0 ? "select" : "new");
+    setModal(true);
+  };
+  const openEdit = (p: Product) => {
+    setEditing(p);
+    setForm({ code: p.code, name: p.name, category: p.category, price_dzd: p.price_dzd, cost_price_dzd: p.cost_price_dzd || 0, stock: p.stock, status: p.status });
+    setCategoryMode("select");
+    setModal(true);
+  };
   const save = async () => {
     setSaving(true);
     if (editing) {
@@ -51,69 +68,108 @@ export default function Products() {
     setSaving(false); setModal(false); load();
   };
   const del = async (id: string) => { if (!confirm("Supprimer ?")) return; await supabase.from("products").delete().eq("id", id); load(); };
-  const filtered = products.filter(p => p.name.toLowerCase().includes(q.toLowerCase()));
+
+  const handleExcel = () => exportToExcel(products, [
+    { key: "code", label: "Code" }, { key: "name", label: "Nom" }, { key: "category", label: "Catégorie" },
+    { key: "cost_price_dzd", label: "Prix Achat (DZD)" }, { key: "price_dzd", label: "Prix Vente (DZD)" },
+    { key: "stock", label: "Stock" }, { key: "status", label: "Statut" },
+  ], "Produits-ETS-ZAIMI");
+
+  const filtered = products
+    .filter(p => filterCategory === "all" || p.category === filterCategory)
+    .filter(p => p.name.toLowerCase().includes(q.toLowerCase()));
 
   return (
     <div style={{ padding: "28px 32px" }}>
       <Header title={t("products")} subtitle={`${products.length} ${t("total_products")}`} />
-      <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginBottom: 20 }}>
+
+      {/* Category filter pills */}
+      {existingCategories.length > 0 && (
+        <div style={{ display: "flex", gap: 6, marginBottom: 16, flexWrap: "wrap" }}>
+          <button onClick={() => setFilterCategory("all")} style={{
+            padding: "6px 14px", borderRadius: 20, border: `1.5px solid ${filterCategory === "all" ? "#C8F000" : darkMode ? "#3A3A3A" : "#E5E7EB"}`,
+            background: filterCategory === "all" ? "#C8F000" : card, color: filterCategory === "all" ? "#1C1C1C" : muted,
+            fontSize: 12, fontWeight: filterCategory === "all" ? 700 : 400, cursor: "pointer"
+          }}>Toutes</button>
+          {existingCategories.map(cat => (
+            <button key={cat} onClick={() => setFilterCategory(cat)} style={{
+              padding: "6px 14px", borderRadius: 20, border: `1.5px solid ${filterCategory === cat ? "#C8F000" : darkMode ? "#3A3A3A" : "#E5E7EB"}`,
+              background: filterCategory === cat ? "#C8F000" : card, color: filterCategory === cat ? "#1C1C1C" : muted,
+              fontSize: 12, fontWeight: filterCategory === cat ? 700 : 400, cursor: "pointer"
+            }}>{cat}</button>
+          ))}
+        </div>
+      )}
+
+      <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginBottom: 20, flexWrap: "wrap" }}>
         <div style={{ position: "relative" }}>
           <Search size={14} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: muted }} />
           <input value={q} onChange={e => setQ(e.target.value)} placeholder={t("search")} style={{ paddingLeft: 30, paddingRight: 12, paddingTop: 8, paddingBottom: 8, border: `1px solid ${darkMode ? "#3A3A3A" : "#E5E7EB"}`, borderRadius: 8, fontSize: 13, outline: "none", width: 200, background: card, color: text }} />
         </div>
-        <button style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 14px", border: `1px solid ${darkMode ? "#3A3A3A" : "#E5E7EB"}`, borderRadius: 8, background: card, color: text, fontSize: 13, cursor: "pointer" }}><Filter size={14} /> {t("filter")}</button>
-        <button onClick={openAdd} style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 16px", background: "#C8F000", border: "none", borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: "pointer", color: "#1C1C1C" }}><Plus size={14} /> {t("add_product")}</button>
+        <button onClick={handleExcel} style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 14px", border: `1px solid ${darkMode ? "#3A3A3A" : "#E5E7EB"}`, borderRadius: 8, background: card, color: text, fontSize: 13, cursor: "pointer" }}>
+          <Download size={14} /> Excel
+        </button>
+        <button onClick={openAdd} style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 16px", background: "#C8F000", border: "none", borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: "pointer", color: "#1C1C1C" }}>
+          <Plus size={14} /> {t("add_product")}
+        </button>
       </div>
 
       <div style={{ background: card, borderRadius: 12, boxShadow: "0 1px 3px rgba(0,0,0,0.07)", overflow: "hidden" }}>
         {loading ? <div style={{ padding: 40, textAlign: "center", color: muted }}>Chargement...</div> : (
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-            <thead>
-              <tr style={{ background: darkMode ? "#2A2A2A" : "#F9F9F9", borderBottom: `1px solid ${border}` }}>
-                {["Code", t("product"), "Catégorie", t("cost_price"), t("sell_price"), t("profit"), t("qty"), t("status"), ""].map((h, i) => (
-                  <th key={i} style={{ textAlign: "left", padding: "12px 16px", color: muted, fontWeight: 500, fontSize: 12 }}>{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.length === 0 ? (
-                <tr><td colSpan={9} style={{ padding: 40, textAlign: "center", color: muted }}>Aucun produit</td></tr>
-              ) : filtered.map(p => {
-                const st = statusStyle[p.status] || statusStyle.active;
-                const profit = (p.price_dzd || 0) - (p.cost_price_dzd || 0);
-                const margin = p.price_dzd ? ((profit / p.price_dzd) * 100).toFixed(1) : "0";
-                return (
-                  <tr key={p.id} style={{ borderBottom: `1px solid ${border}` }}>
-                    <td style={{ padding: "13px 16px", color: muted, fontSize: 12 }}>{p.code}</td>
-                    <td style={{ padding: "13px 16px", fontWeight: 500, color: text }}>{p.name}</td>
-                    <td style={{ padding: "13px 16px", color: muted }}>{p.category}</td>
-                    <td style={{ padding: "13px 16px", color: muted }}>{fmt(p.cost_price_dzd || 0)}</td>
-                    <td style={{ padding: "13px 16px", fontWeight: 600, color: text }}>{fmt(p.price_dzd)}</td>
-                    <td style={{ padding: "13px 16px" }}>
-                      <span style={{ color: profit >= 0 ? "#16a34a" : "#dc2626", fontWeight: 700 }}>{fmt(profit)}</span>
-                      <span style={{ color: muted, fontSize: 11, marginLeft: 4 }}>({margin}%)</span>
-                    </td>
-                    <td style={{ padding: "13px 16px", color: text }}>{p.stock}</td>
-                    <td style={{ padding: "13px 16px" }}><span style={{ background: st.bg, color: st.color, padding: "3px 10px", borderRadius: 10, fontSize: 11, fontWeight: 600 }}>{t(statusKeys[p.status] || "active")}</span></td>
-                    <td style={{ padding: "13px 16px" }}><div style={{ display: "flex", gap: 6 }}>
-                      <button onClick={() => openEdit(p)} style={{ fontSize: 12, color: "#C8F000", background: "#1C1C1C", border: "none", padding: "4px 12px", borderRadius: 6, cursor: "pointer", fontWeight: 600 }}>{t("edit")}</button>
-                      <button onClick={() => del(p.id)} style={{ fontSize: 12, color: "#dc2626", background: "#FEE2E2", border: "none", padding: "4px 12px", borderRadius: 6, cursor: "pointer", fontWeight: 600 }}>✕</button>
-                    </div></td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+          <div style={{ overflowX: "auto" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13, minWidth: 800 }}>
+              <thead>
+                <tr style={{ background: headerBg, borderBottom: `1px solid ${border}` }}>
+                  {["Code", t("product"), "Catégorie", t("cost_price"), t("sell_price"), t("profit"), t("qty"), t("status"), ""].map((h, i) => (
+                    <th key={i} style={{ textAlign: "left", padding: "12px 16px", color: muted, fontWeight: 500, fontSize: 12, whiteSpace: "nowrap" }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.length === 0 ? (
+                  <tr><td colSpan={9} style={{ padding: 40, textAlign: "center", color: muted }}>Aucun produit</td></tr>
+                ) : filtered.map(p => {
+                  const st = statusStyle[p.status] || statusStyle.active;
+                  const profit = (p.price_dzd || 0) - (p.cost_price_dzd || 0);
+                  const margin = p.price_dzd ? ((profit / p.price_dzd) * 100).toFixed(1) : "0";
+                  return (
+                    <tr key={p.id} style={{ borderBottom: `1px solid ${border}` }}>
+                      <td style={{ padding: "13px 16px", color: muted, fontSize: 12, whiteSpace: "nowrap" }}>{p.code}</td>
+                      <td style={{ padding: "13px 16px", fontWeight: 500, color: text }}>{p.name}</td>
+                      <td style={{ padding: "13px 16px", color: muted }}>{p.category}</td>
+                      <td style={{ padding: "13px 16px", color: muted, whiteSpace: "nowrap" }}>{fmt(p.cost_price_dzd || 0)}</td>
+                      <td style={{ padding: "13px 16px", fontWeight: 600, color: text, whiteSpace: "nowrap" }}>{fmt(p.price_dzd)}</td>
+                      <td style={{ padding: "13px 16px", whiteSpace: "nowrap" }}>
+                        <span style={{ color: profit >= 0 ? "#16a34a" : "#dc2626", fontWeight: 700 }}>{fmt(profit)}</span>
+                        <span style={{ color: muted, fontSize: 11, marginLeft: 4 }}>({margin}%)</span>
+                      </td>
+                      <td style={{ padding: "13px 16px", color: text }}>{p.stock}</td>
+                      <td style={{ padding: "13px 16px" }}><span style={{ background: st.bg, color: st.color, padding: "3px 10px", borderRadius: 10, fontSize: 11, fontWeight: 600 }}>{t(statusKeys[p.status] || "active")}</span></td>
+                      <td style={{ padding: "13px 16px" }}>
+                        <div style={{ display: "flex", gap: 6 }}>
+                          <button onClick={() => openEdit(p)} style={{ fontSize: 12, color: "#C8F000", background: "#1C1C1C", border: "none", padding: "4px 12px", borderRadius: 6, cursor: "pointer", fontWeight: 600 }}>{t("edit")}</button>
+                          <button onClick={() => del(p.id)} style={{ fontSize: 12, color: "#dc2626", background: "#FEE2E2", border: "none", padding: "4px 12px", borderRadius: 6, cursor: "pointer", fontWeight: 600 }}>✕</button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         )}
       </div>
 
       {modal && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100 }}>
-          <div style={{ background: card, borderRadius: 16, padding: 28, width: 480, boxShadow: "0 20px 60px rgba(0,0,0,0.3)", maxHeight: "90vh", overflowY: "auto" }}>
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100, padding: 16 }}
+          onClick={() => setModal(false)}>
+          <div style={{ background: card, borderRadius: 16, padding: 28, width: "100%", maxWidth: 480, boxShadow: "0 20px 60px rgba(0,0,0,0.3)", maxHeight: "90vh", overflowY: "auto" }}
+            onClick={e => e.stopPropagation()}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
               <h2 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: text }}>{editing ? t("edit") : t("add_product")}</h2>
               <button onClick={() => setModal(false)} style={{ background: "none", border: "none", cursor: "pointer", color: text }}><X size={18} /></button>
             </div>
+
             {!editing && (
               <p style={{ fontSize: 12, color: muted, margin: "0 0 16px", padding: "8px 12px", background: darkMode ? "#2A2A2A" : "#F9F9F9", borderRadius: 8 }}>
                 Code auto-généré: <strong style={{ color: text }}>{generateCode()}</strong>
@@ -122,9 +178,40 @@ export default function Products() {
             {editing && (
               <p style={{ fontSize: 12, color: muted, margin: "0 0 16px" }}>Code: <strong style={{ color: text }}>{editing.code}</strong></p>
             )}
+
+            <div style={{ marginBottom: 14 }}>
+              <label style={{ fontSize: 12, fontWeight: 600, color: muted, display: "block", marginBottom: 4 }}>{t("product")}</label>
+              <input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} style={inputStyle} />
+            </div>
+
+            {/* CATEGORY — smart dropdown */}
+            <div style={{ marginBottom: 14 }}>
+              <label style={{ fontSize: 12, fontWeight: 600, color: muted, display: "block", marginBottom: 4 }}>Catégorie</label>
+              {categoryMode === "select" && existingCategories.length > 0 ? (
+                <>
+                  <select value={form.category} onChange={e => setForm({ ...form, category: e.target.value })} style={inputStyle}>
+                    <option value="">— Choisir une catégorie —</option>
+                    {existingCategories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+                  </select>
+                  <button onClick={() => { setCategoryMode("new"); setForm({ ...form, category: "" }); }}
+                    style={{ marginTop: 6, fontSize: 11, color: "#C8F000", background: "none", border: "none", cursor: "pointer", padding: 0, fontWeight: 600 }}>
+                    + Créer une nouvelle catégorie
+                  </button>
+                </>
+              ) : (
+                <>
+                  <input value={form.category} onChange={e => setForm({ ...form, category: e.target.value })} placeholder="Ex: Caméras, Routeurs, Câblage..." style={inputStyle} />
+                  {existingCategories.length > 0 && (
+                    <button onClick={() => setCategoryMode("select")}
+                      style={{ marginTop: 6, fontSize: 11, color: muted, background: "none", border: "none", cursor: "pointer", padding: 0 }}>
+                      ← Choisir une catégorie existante
+                    </button>
+                  )}
+                </>
+              )}
+            </div>
+
             {([
-              [t("product"), "name", "text"],
-              ["Catégorie", "category", "text"],
               [t("cost_price"), "cost_price_dzd", "number"],
               [t("sell_price"), "price_dzd", "number"],
               [t("qty"), "stock", "number"],
@@ -134,11 +221,12 @@ export default function Products() {
                 <input type={type} value={(form as any)[key]} onChange={e => setForm({ ...form, [key]: type === "number" ? Number(e.target.value) : e.target.value })} style={inputStyle} />
                 {(key === "price_dzd" || key === "cost_price_dzd") && form.price_dzd > 0 && form.cost_price_dzd > 0 && (
                   <p style={{ fontSize: 11, color: form.price_dzd > form.cost_price_dzd ? "#16a34a" : "#dc2626", margin: "4px 0 0" }}>
-                    {t("profit")}: {fmt(form.price_dzd - form.cost_price_dzd)} ({((( form.price_dzd - form.cost_price_dzd) / form.price_dzd) * 100).toFixed(1)}%)
+                    {t("profit")}: {fmt(form.price_dzd - form.cost_price_dzd)} ({(((form.price_dzd - form.cost_price_dzd) / form.price_dzd) * 100).toFixed(1)}%)
                   </p>
                 )}
               </div>
             ))}
+
             <div style={{ marginBottom: 20 }}>
               <label style={{ fontSize: 12, fontWeight: 600, color: muted, display: "block", marginBottom: 4 }}>{t("status")}</label>
               <select value={form.status} onChange={e => setForm({ ...form, status: e.target.value })} style={inputStyle}>

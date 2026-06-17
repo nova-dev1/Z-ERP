@@ -36,7 +36,6 @@ export default function Orders() {
   const [editing, setEditing] = useState<Order | null>(null);
   const [saving, setSaving] = useState(false);
 
-  // Form state
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [qty, setQty] = useState(1);
@@ -57,6 +56,10 @@ export default function Orders() {
   const inputBorder = darkMode ? "#3A3A3A" : "#E5E7EB";
   const inputStyle = { width: "100%", padding: "9px 12px", border: `1.5px solid ${inputBorder}`, borderRadius: 8, fontSize: 13, outline: "none", boxSizing: "border-box" as const, background: inputBg, color: text };
 
+  const openProductSearch = () => { setShowProductDropdown(true); setShowClientDropdown(false); };
+  const openClientSearch = () => { setShowClientDropdown(true); setShowProductDropdown(false); };
+  const closeAllDropdowns = () => { setShowProductDropdown(false); setShowClientDropdown(false); };
+
   const load = async () => {
     setLoading(true);
     const [o, p, c] = await Promise.all([
@@ -72,7 +75,6 @@ export default function Orders() {
 
   useEffect(() => { load(); }, []);
 
-  // Auto-generate order code
   const generateCode = () => {
     const year = new Date().getFullYear();
     const num = String(orders.length + 1).padStart(3, "0");
@@ -89,6 +91,7 @@ export default function Orders() {
     setNewClient({ name: "", email: "", phone: "" });
     setClientSearch("");
     setProductSearch("");
+    closeAllDropdowns();
     setModal(true);
   };
 
@@ -103,6 +106,7 @@ export default function Orders() {
     const cust = customers.find(c => c.id === o.customer_id_ref);
     setSelectedCustomer(cust || null);
     setIsNewClient(false);
+    closeAllDropdowns();
     setModal(true);
   };
 
@@ -111,25 +115,16 @@ export default function Orders() {
   const save = async () => {
     if (!selectedProduct && !editing) return;
     setSaving(true);
-
     try {
       let customerId = selectedCustomer?.id || null;
       let customerName = selectedCustomer?.name || editing?.customer_name || "";
 
-      // Create new client if needed
       if (isNewClient && newClient.name) {
         const clientCode = `C-${String(customers.length + 1).padStart(3, "0")}`;
         const { data: newCust } = await supabase.from("customers").insert({
-          code: clientCode,
-          name: newClient.name,
-          email: newClient.email,
-          phone: newClient.phone,
-          status: "new",
+          code: clientCode, name: newClient.name, email: newClient.email, phone: newClient.phone, status: "new",
         }).select().single();
-        if (newCust) {
-          customerId = newCust.id;
-          customerName = newCust.name;
-        }
+        if (newCust) { customerId = newCust.id; customerName = newCust.name; }
       }
 
       const orderData = {
@@ -144,12 +139,8 @@ export default function Orders() {
       if (editing) {
         await supabase.from("orders").update(orderData).eq("id", editing.id);
       } else {
-        await supabase.from("orders").insert({
-          ...orderData,
-          code: generateCode(),
-        });
+        await supabase.from("orders").insert({ ...orderData, code: generateCode() });
       }
-
       setSaving(false);
       setModal(false);
       load();
@@ -158,27 +149,16 @@ export default function Orders() {
     }
   };
 
-  const del = async (id: string) => {
-    if (!confirm("Supprimer cette commande ?")) return;
-    await supabase.from("orders").delete().eq("id", id);
-    load();
-  };
+  const del = async (id: string) => { if (!confirm("Supprimer cette commande ?")) return; await supabase.from("orders").delete().eq("id", id); load(); };
 
   const handleExcel = () => exportToExcel(orders, [
-    { key: "code", label: "N° Commande" },
-    { key: "customer_name", label: "Client" },
-    { key: "product", label: "Produit" },
-    { key: "qty", label: "Quantité" },
-    { key: "total_dzd", label: "Total (DZD)" },
-    { key: "status", label: "Statut" },
+    { key: "code", label: "N° Commande" }, { key: "customer_name", label: "Client" },
+    { key: "product", label: "Produit" }, { key: "qty", label: "Quantité" },
+    { key: "total_dzd", label: "Total (DZD)" }, { key: "status", label: "Statut" },
     { key: "created_at", label: "Date" },
   ], "Commandes-ETS-ZAIMI");
 
-  const filtered = orders.filter(o =>
-    o.customer_name?.toLowerCase().includes(q.toLowerCase()) ||
-    o.code?.toLowerCase().includes(q.toLowerCase())
-  );
-
+  const filtered = orders.filter(o => o.customer_name?.toLowerCase().includes(q.toLowerCase()) || o.code?.toLowerCase().includes(q.toLowerCase()));
   const filteredProducts = products.filter(p => p.name.toLowerCase().includes(productSearch.toLowerCase()));
   const filteredCustomers = customers.filter(c => c.name.toLowerCase().includes(clientSearch.toLowerCase()));
 
@@ -245,14 +225,12 @@ export default function Orders() {
         )}
       </div>
 
-      {/* Smart Order Modal */}
       {modal && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100, padding: 16 }}
-          onClick={e => { if (e.target === e.currentTarget) setModal(false); }}>
+          onClick={() => setModal(false)}>
           <div style={{ background: card, borderRadius: 16, padding: 28, width: "100%", maxWidth: 520, boxShadow: "0 20px 60px rgba(0,0,0,0.4)", maxHeight: "90vh", overflowY: "auto" }}
-            onClick={e => e.stopPropagation()}>
+            onClick={e => { e.stopPropagation(); }}>
 
-            {/* Header */}
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
               <div>
                 <h2 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: text }}>{editing ? t("edit") : t("new_order")}</h2>
@@ -262,15 +240,15 @@ export default function Orders() {
             </div>
 
             {/* PRODUCT SELECTOR */}
-            <div style={{ marginBottom: 20 }}>
+            <div style={{ marginBottom: 20 }} onClick={e => e.stopPropagation()}>
               <label style={{ fontSize: 12, fontWeight: 600, color: muted, display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
                 <Package size={13} /> Produit
               </label>
               <div style={{ position: "relative" }}>
                 <input
                   value={productSearch}
-                  onChange={e => { setProductSearch(e.target.value); setShowProductDropdown(true); setSelectedProduct(null); }}
-                  onFocus={() => setShowProductDropdown(true)}
+                  onChange={e => { setProductSearch(e.target.value); openProductSearch(); setSelectedProduct(null); }}
+                  onFocus={openProductSearch}
                   placeholder="Rechercher un produit..."
                   style={{ ...inputStyle, paddingRight: 36 }}
                 />
@@ -287,16 +265,13 @@ export default function Orders() {
                           <p style={{ margin: 0, fontSize: 13, fontWeight: 500, color: text }}>{p.name}</p>
                           <p style={{ margin: "2px 0 0", fontSize: 11, color: muted }}>{p.category} • {fmt(p.price_dzd)}</p>
                         </div>
-                        <div style={{ textAlign: "right" }}>
-                          <span style={{ fontSize: 11, fontWeight: 700, color: p.stock <= 5 ? "#dc2626" : p.stock <= 15 ? "#ca8a04" : "#16a34a" }}>{p.stock} en stock</span>
-                        </div>
+                        <span style={{ fontSize: 11, fontWeight: 700, color: p.stock <= 5 ? "#dc2626" : p.stock <= 15 ? "#ca8a04" : "#16a34a" }}>{p.stock} en stock</span>
                       </div>
                     ))}
                   </div>
                 )}
               </div>
 
-              {/* Selected product info */}
               {selectedProduct && (
                 <div style={{ marginTop: 10, padding: "10px 14px", background: darkMode ? "#2A2A2A" : "#F0FFF4", borderRadius: 8, border: "1px solid #16a34a22" }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -306,9 +281,7 @@ export default function Orders() {
                     </div>
                     <div style={{ textAlign: "right" }}>
                       <p style={{ margin: 0, fontSize: 11, color: selectedProduct.stock <= 5 ? "#dc2626" : "#16a34a", fontWeight: 600 }}>{selectedProduct.stock} disponibles</p>
-                      {qty > selectedProduct.stock && (
-                        <p style={{ margin: "2px 0 0", fontSize: 10, color: "#dc2626", fontWeight: 600 }}>⚠ Stock insuffisant!</p>
-                      )}
+                      {qty > selectedProduct.stock && <p style={{ margin: "2px 0 0", fontSize: 10, color: "#dc2626", fontWeight: 600 }}>⚠ Stock insuffisant!</p>}
                     </div>
                   </div>
                 </div>
@@ -317,16 +290,14 @@ export default function Orders() {
 
             {/* QTY */}
             {selectedProduct && (
-              <div style={{ marginBottom: 20 }}>
+              <div style={{ marginBottom: 20 }} onClick={e => e.stopPropagation()}>
                 <label style={{ fontSize: 12, fontWeight: 600, color: muted, display: "block", marginBottom: 6 }}>{t("qty")}</label>
                 <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                  <button onClick={() => setQty(Math.max(1, qty - 1))}
-                    style={{ width: 36, height: 36, borderRadius: 8, border: `1px solid ${inputBorder}`, background: card, color: text, fontSize: 18, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>−</button>
+                  <button onClick={() => setQty(Math.max(1, qty - 1))} style={{ width: 36, height: 36, borderRadius: 8, border: `1px solid ${inputBorder}`, background: card, color: text, fontSize: 18, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>−</button>
                   <input type="number" value={qty} min={1} max={selectedProduct.stock}
                     onChange={e => setQty(Math.min(selectedProduct.stock, Math.max(1, Number(e.target.value))))}
                     style={{ ...inputStyle, width: 80, textAlign: "center" }} />
-                  <button onClick={() => setQty(Math.min(selectedProduct.stock, qty + 1))}
-                    style={{ width: 36, height: 36, borderRadius: 8, border: `1px solid ${inputBorder}`, background: card, color: text, fontSize: 18, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>+</button>
+                  <button onClick={() => setQty(Math.min(selectedProduct.stock, qty + 1))} style={{ width: 36, height: 36, borderRadius: 8, border: `1px solid ${inputBorder}`, background: card, color: text, fontSize: 18, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>+</button>
                   <div style={{ flex: 1, padding: "8px 14px", background: "#1C1C1C", borderRadius: 8, textAlign: "center" }}>
                     <p style={{ margin: 0, fontSize: 11, color: "#aaa" }}>Total</p>
                     <p style={{ margin: 0, fontSize: 14, fontWeight: 700, color: "#C8F000" }}>{fmt(totalPrice)}</p>
@@ -336,7 +307,7 @@ export default function Orders() {
             )}
 
             {/* CLIENT SELECTOR */}
-            <div style={{ marginBottom: 20 }}>
+            <div style={{ marginBottom: 20 }} onClick={e => e.stopPropagation()}>
               <label style={{ fontSize: 12, fontWeight: 600, color: muted, display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
                 <User size={13} /> Client
               </label>
@@ -346,8 +317,8 @@ export default function Orders() {
                   <div style={{ position: "relative" }}>
                     <input
                       value={clientSearch}
-                      onChange={e => { setClientSearch(e.target.value); setShowClientDropdown(true); setSelectedCustomer(null); }}
-                      onFocus={() => setShowClientDropdown(true)}
+                      onChange={e => { setClientSearch(e.target.value); openClientSearch(); setSelectedCustomer(null); }}
+                      onFocus={openClientSearch}
                       placeholder="Rechercher un client..."
                       style={{ ...inputStyle, paddingRight: 36 }}
                     />
@@ -386,8 +357,7 @@ export default function Orders() {
                     </div>
                   )}
 
-                  <button onClick={() => setIsNewClient(true)}
-                    style={{ marginTop: 8, fontSize: 12, color: "#C8F000", background: "none", border: "none", cursor: "pointer", padding: 0, fontWeight: 600 }}>
+                  <button onClick={() => setIsNewClient(true)} style={{ marginTop: 8, fontSize: 12, color: "#C8F000", background: "none", border: "none", cursor: "pointer", padding: 0, fontWeight: 600 }}>
                     + Nouveau client
                   </button>
                 </>
@@ -400,19 +370,16 @@ export default function Orders() {
                   {[["Nom complet", "name"], ["Email", "email"], ["Téléphone", "phone"]].map(([label, key]) => (
                     <div key={key} style={{ marginBottom: 10 }}>
                       <label style={{ fontSize: 11, fontWeight: 600, color: muted, display: "block", marginBottom: 3 }}>{label}</label>
-                      <input value={(newClient as any)[key]} onChange={e => setNewClient({ ...newClient, [key]: e.target.value })}
-                        style={{ ...inputStyle, background: card }} />
+                      <input value={(newClient as any)[key]} onChange={e => setNewClient({ ...newClient, [key]: e.target.value })} style={{ ...inputStyle, background: card }} />
                     </div>
                   ))}
-                  <p style={{ fontSize: 10, color: muted, margin: "6px 0 0" }}>
-                    ℹ️ Ce client sera créé automatiquement avec le statut <strong>Nouveau</strong>. Son statut évoluera selon ses achats.
-                  </p>
+                  <p style={{ fontSize: 10, color: muted, margin: "6px 0 0" }}>ℹ️ Ce client sera créé automatiquement avec le statut <strong>Nouveau</strong>.</p>
                 </div>
               )}
             </div>
 
             {/* STATUS */}
-            <div style={{ marginBottom: 24 }}>
+            <div style={{ marginBottom: 24 }} onClick={e => e.stopPropagation()}>
               <label style={{ fontSize: 12, fontWeight: 600, color: muted, display: "block", marginBottom: 6 }}>{t("status")}</label>
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                 {["pending", "processing", "delivered", "cancelled"].map(s => {
@@ -427,13 +394,10 @@ export default function Orders() {
                 })}
               </div>
               {status === "delivered" && selectedProduct && qty <= selectedProduct.stock && (
-                <p style={{ fontSize: 11, color: "#16a34a", marginTop: 6, fontWeight: 500 }}>
-                  ✓ Stock: {selectedProduct.stock} → {selectedProduct.stock - qty} après livraison
-                </p>
+                <p style={{ fontSize: 11, color: "#16a34a", marginTop: 6, fontWeight: 500 }}>✓ Stock: {selectedProduct.stock} → {selectedProduct.stock - qty} après livraison</p>
               )}
             </div>
 
-            {/* SUMMARY */}
             {selectedProduct && (selectedCustomer || (isNewClient && newClient.name)) && (
               <div style={{ padding: "12px 16px", background: "#1C1C1C", borderRadius: 10, marginBottom: 20 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
@@ -451,7 +415,7 @@ export default function Orders() {
               </div>
             )}
 
-            <div style={{ display: "flex", gap: 10 }}>
+            <div style={{ display: "flex", gap: 10 }} onClick={e => e.stopPropagation()}>
               <button onClick={() => setModal(false)} style={{ flex: 1, padding: "11px", border: `1.5px solid ${inputBorder}`, borderRadius: 8, background: card, color: text, fontSize: 13, cursor: "pointer" }}>Annuler</button>
               <button onClick={save} disabled={saving || (!selectedProduct && !editing) || (!selectedCustomer && !isNewClient && !editing)}
                 style={{ flex: 1, padding: "11px", background: "#C8F000", border: "none", borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: "pointer", color: "#1C1C1C", opacity: (saving || (!selectedProduct && !editing)) ? 0.6 : 1 }}>
