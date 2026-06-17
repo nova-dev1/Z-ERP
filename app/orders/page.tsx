@@ -248,8 +248,9 @@ export default function Orders() {
       {/* Smart Order Modal */}
       {modal && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100, padding: 16 }}
-          onClick={e => { if (e.target === e.currentTarget) setModal(false); setShowClientDropdown(false); setShowProductDropdown(false); }}>
-          <div style={{ background: card, borderRadius: 16, padding: 28, width: "100%", maxWidth: 520, boxShadow: "0 20px 60px rgba(0,0,0,0.4)", maxHeight: "90vh", overflowY: "auto" }}>
+          onClick={e => { if (e.target === e.currentTarget) setModal(false); }}>
+          <div style={{ background: card, borderRadius: 16, padding: 28, width: "100%", maxWidth: 520, boxShadow: "0 20px 60px rgba(0,0,0,0.4)", maxHeight: "90vh", overflowY: "auto" }}
+            onClick={e => e.stopPropagation()}>
 
             {/* Header */}
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>

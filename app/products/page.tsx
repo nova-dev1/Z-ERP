@@ -32,9 +32,24 @@ export default function Products() {
 
   const load = async () => { setLoading(true); const { data } = await supabase.from("products").select("*").order("created_at", { ascending: false }); setProducts(data || []); setLoading(false); };
   useEffect(() => { load(); }, []);
+
+  const generateCode = () => {
+    const year = new Date().getFullYear();
+    const num = String(products.length + 1).padStart(3, "0");
+    return `PRD-${year}-${num}`;
+  };
+
   const openAdd = () => { setEditing(null); setForm(emptyForm); setModal(true); };
   const openEdit = (p: Product) => { setEditing(p); setForm({ code: p.code, name: p.name, category: p.category, price_dzd: p.price_dzd, cost_price_dzd: p.cost_price_dzd || 0, stock: p.stock, status: p.status }); setModal(true); };
-  const save = async () => { setSaving(true); if (editing) { await supabase.from("products").update(form).eq("id", editing.id); } else { await supabase.from("products").insert(form); } setSaving(false); setModal(false); load(); };
+  const save = async () => {
+    setSaving(true);
+    if (editing) {
+      await supabase.from("products").update(form).eq("id", editing.id);
+    } else {
+      await supabase.from("products").insert({ ...form, code: generateCode() });
+    }
+    setSaving(false); setModal(false); load();
+  };
   const del = async (id: string) => { if (!confirm("Supprimer ?")) return; await supabase.from("products").delete().eq("id", id); load(); };
   const filtered = products.filter(p => p.name.toLowerCase().includes(q.toLowerCase()));
 
@@ -99,8 +114,15 @@ export default function Products() {
               <h2 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: text }}>{editing ? t("edit") : t("add_product")}</h2>
               <button onClick={() => setModal(false)} style={{ background: "none", border: "none", cursor: "pointer", color: text }}><X size={18} /></button>
             </div>
+            {!editing && (
+              <p style={{ fontSize: 12, color: muted, margin: "0 0 16px", padding: "8px 12px", background: darkMode ? "#2A2A2A" : "#F9F9F9", borderRadius: 8 }}>
+                Code auto-généré: <strong style={{ color: text }}>{generateCode()}</strong>
+              </p>
+            )}
+            {editing && (
+              <p style={{ fontSize: 12, color: muted, margin: "0 0 16px" }}>Code: <strong style={{ color: text }}>{editing.code}</strong></p>
+            )}
             {([
-              ["Code", "code", "text"],
               [t("product"), "name", "text"],
               ["Catégorie", "category", "text"],
               [t("cost_price"), "cost_price_dzd", "number"],
