@@ -229,7 +229,7 @@ export default function Orders() {
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100, padding: 16 }}
           onClick={() => setModal(false)}>
           <div style={{ background: card, borderRadius: 16, padding: 28, width: "100%", maxWidth: 520, boxShadow: "0 20px 60px rgba(0,0,0,0.4)", maxHeight: "90vh", overflowY: "auto" }}
-            onClick={e => { e.stopPropagation(); }}>
+            onClick={e => { e.stopPropagation(); closeAllDropdowns(); }}>
 
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
               <div>
@@ -249,15 +249,20 @@ export default function Orders() {
                   value={productSearch}
                   onChange={e => { setProductSearch(e.target.value); openProductSearch(); setSelectedProduct(null); }}
                   onFocus={openProductSearch}
+                  onBlur={() => setTimeout(() => setShowProductDropdown(false), 150)}
                   placeholder="Rechercher un produit..."
                   style={{ ...inputStyle, paddingRight: 36 }}
                 />
-                <ChevronDown size={14} style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", color: muted, pointerEvents: "none" }} />
+                <div onMouseDown={e => { e.preventDefault(); setShowProductDropdown(v => !v); }}
+                  style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", cursor: "pointer", display: "flex", alignItems: "center" }}>
+                  <ChevronDown size={14} color={muted} style={{ transform: showProductDropdown ? "rotate(180deg)" : "none", transition: "transform 0.15s" }} />
+                </div>
 
                 {showProductDropdown && filteredProducts.length > 0 && (
                   <div style={{ position: "absolute", top: "100%", left: 0, right: 0, background: card, border: `1px solid ${inputBorder}`, borderRadius: 8, zIndex: 50, maxHeight: 220, overflowY: "auto", boxShadow: darkMode ? "0 8px 24px rgba(0,0,0,0.6)" : "0 8px 24px rgba(0,0,0,0.25)", marginTop: 4, opacity: 1 }}>
                     {filteredProducts.map(p => (
-                      <div key={p.id} onClick={() => { setSelectedProduct(p); setProductSearch(p.name); setShowProductDropdown(false); }}
+                      <div key={p.id}
+                        onMouseDown={e => { e.preventDefault(); setSelectedProduct(p); setProductSearch(p.name); setShowProductDropdown(false); }}
                         style={{ padding: "10px 14px", cursor: "pointer", borderBottom: `1px solid ${border}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}
                         onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = darkMode ? "#2A2A2A" : "#F9F9F9"}
                         onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = "transparent"}>
@@ -319,17 +324,22 @@ export default function Orders() {
                       value={clientSearch}
                       onChange={e => { setClientSearch(e.target.value); openClientSearch(); setSelectedCustomer(null); }}
                       onFocus={openClientSearch}
+                      onBlur={() => setTimeout(() => setShowClientDropdown(false), 150)}
                       placeholder="Rechercher un client..."
                       style={{ ...inputStyle, paddingRight: 36 }}
                     />
-                    <ChevronDown size={14} style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", color: muted, pointerEvents: "none" }} />
+                    <div onMouseDown={e => { e.preventDefault(); setShowClientDropdown(v => !v); }}
+                      style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", cursor: "pointer", display: "flex", alignItems: "center" }}>
+                      <ChevronDown size={14} color={muted} style={{ transform: showClientDropdown ? "rotate(180deg)" : "none", transition: "transform 0.15s" }} />
+                    </div>
 
                     {showClientDropdown && filteredCustomers.length > 0 && (
                       <div style={{ position: "absolute", top: "100%", left: 0, right: 0, background: card, border: `1px solid ${inputBorder}`, borderRadius: 8, zIndex: 50, maxHeight: 200, overflowY: "auto", boxShadow: darkMode ? "0 8px 24px rgba(0,0,0,0.6)" : "0 8px 24px rgba(0,0,0,0.25)", marginTop: 4 }}>
                         {filteredCustomers.map(c => {
                           const st = clientStatusStyle[c.status] || clientStatusStyle.new;
                           return (
-                            <div key={c.id} onClick={() => { setSelectedCustomer(c); setClientSearch(c.name); setShowClientDropdown(false); }}
+                            <div key={c.id}
+                              onMouseDown={e => { e.preventDefault(); setSelectedCustomer(c); setClientSearch(c.name); setShowClientDropdown(false); }}
                               style={{ padding: "10px 14px", cursor: "pointer", borderBottom: `1px solid ${border}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}
                               onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = darkMode ? "#2A2A2A" : "#F9F9F9"}
                               onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = "transparent"}>
