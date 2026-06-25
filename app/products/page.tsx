@@ -1,10 +1,11 @@
 "use client";
-import { useState, useEffect } from "react";
-import { Search, Plus, Filter, X, Download } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { Search, Plus, Filter, X, Download, Upload, CheckCircle, AlertCircle } from "lucide-react";
 import { useApp } from "@/context/AppContext";
 import Header from "@/components/Header";
 import { supabase } from "@/lib/supabase";
 import { exportToExcel } from "@/lib/exportExcel";
+import * as XLSX from "xlsx";
 
 type Product = { id: string; code: string; name: string; category: string; price_dzd: number; cost_price_dzd: number; stock: number; status: string; };
 
@@ -26,6 +27,59 @@ export default function Products() {
   const [saving, setSaving] = useState(false);
   const [categoryMode, setCategoryMode] = useState<"select" | "new">("select");
   const [filterCategory, setFilterCategory] = useState("all");
+  const [importing, setImporting] = useState(false);
+  const [importResult, setImportResult] = useState<{ success: number; errors: string[] } | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const getStatus = (qty: number) => {
+    if (qty === 0) return "out";
+    if (qty <= 3) return "critical";
+    if (qty <= 5) return "low";
+    return "active";
+  };
+
+  const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setImporting(true);
+    setImportResult(null);
+
+    try {
+      const buffer = await file.arrayBuffer();
+      const wb = XLSX.read(buffer, { type: "array" });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const rows: any[] = XLSX.utils.sheet_to_json(ws, { range: 3, header: ["name", "category", "cost_price_dzd", "price_dzd", "stock"] });
+
+      const valid = rows.filter(r => r.name && r.category && r.price_dzd);
+      const errors: string[] = [];
+      let success = 0;
+
+      for (let i = 0; i < valid.length; i++) {
+        const r = valid[i];
+        const qty = Number(r.stock) || 0;
+        const code = `PRD-${new Date().getFullYear()}-${String(products.length + i + 1).padStart(3, "0")}`;
+        const { error } = await supabase.from("products").insert({
+          code,
+          name: String(r.name).trim(),
+          category: String(r.category).trim(),
+          cost_price_dzd: Number(r.cost_price_dzd) || 0,
+          price_dzd: Number(r.price_dzd) || 0,
+          stock: qty,
+          status: getStatus(qty),
+        });
+        if (error) errors.push(`Ligne ${i + 4}: ${r.name} — ${error.message}`);
+        else success++;
+      }
+
+      setImportResult({ success, errors });
+      load();
+    } catch (err) {
+      setImportResult({ success: 0, errors: ["Fichier invalide. Utilisez le modèle Z-ERP."] });
+    }
+
+    setImporting(false);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
 
   const card = darkMode ? "#1C1C1C" : "#fff";
   const border = darkMode ? "#2A2A2A" : "#F0F0F0";
@@ -109,10 +163,33 @@ export default function Products() {
         <button onClick={handleExcel} style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 14px", border: `1px solid ${darkMode ? "#3A3A3A" : "#E5E7EB"}`, borderRadius: 8, background: card, color: text, fontSize: 13, cursor: "pointer" }}>
           <Download size={14} /> Excel
         </button>
+        <button onClick={() => fileInputRef.current?.click()} disabled={importing}
+          style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 14px", border: `1px solid ${darkMode ? "#3A3A3A" : "#E5E7EB"}`, borderRadius: 8, background: darkMode ? "#2A2A2A" : "#F0FFF4", color: "#16a34a", fontSize: 13, cursor: "pointer", fontWeight: 600 }}>
+          <Upload size={14} /> {importing ? "Import..." : "Importer Excel"}
+        </button>
+        <input ref={fileInputRef} type="file" accept=".xlsx,.xls" onChange={handleImport} style={{ display: "none" }} />
         <button onClick={openAdd} style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 16px", background: "#C8F000", border: "none", borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: "pointer", color: "#1C1C1C" }}>
           <Plus size={14} /> {t("add_product")}
         </button>
       </div>
+
+      {importResult && (
+        <div style={{ marginBottom: 16, padding: "14px 16px", borderRadius: 10, background: importResult.errors.length === 0 ? "#F0FFF4" : "#FFF7ED", border: `1px solid ${importResult.errors.length === 0 ? "#16a34a" : "#f97316"}33` }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: importResult.errors.length > 0 ? 8 : 0 }}>
+            {importResult.errors.length === 0
+              ? <CheckCircle size={16} color="#16a34a" />
+              : <AlertCircle size={16} color="#f97316" />}
+            <span style={{ fontSize: 13, fontWeight: 600, color: importResult.errors.length === 0 ? "#16a34a" : "#f97316" }}>
+              {importResult.success} produit(s) importé(s) avec succès
+              {importResult.errors.length > 0 && ` — ${importResult.errors.length} erreur(s)`}
+            </span>
+            <button onClick={() => setImportResult(null)} style={{ marginLeft: "auto", background: "none", border: "none", cursor: "pointer", color: "#aaa" }}><X size={14} /></button>
+          </div>
+          {importResult.errors.map((e, i) => (
+            <p key={i} style={{ fontSize: 11, color: "#dc2626", margin: "2px 0" }}>• {e}</p>
+          ))}
+        </div>
+      )}
 
       <div style={{ background: card, borderRadius: 12, boxShadow: "0 1px 3px rgba(0,0,0,0.07)", overflow: "hidden" }}>
         {loading ? <div style={{ padding: 40, textAlign: "center", color: muted }}>Chargement...</div> : (
